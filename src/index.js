@@ -5,11 +5,20 @@ import dotenv from "dotenv";
 dotenv.config();
 import radis from 'ioredis'
 import http from 'http'
+import { Server } from "socket.io"
 const PORT = process.env.PORT || 4000
 
 
-
 const httpServer = http.createServer(app)
+const io = new Server() // socket server
+io.attach(httpServer)
+
+io.on('connection', (socket) => {
+    console.log(`Socket Connected ${socket.id}`)
+    socket.on("message", (msg) => {
+        io.emit("server-message", msg) // Broadcast all the sockets ❤️
+    })
+})
 
 
 // const cacheStore = {
@@ -21,8 +30,10 @@ const redis = new radis({ host: "localhost", port: 6379 })
 
 
 
-// rate limiting middleware
 
+app.use(express.static('./public'))
+
+// rate limiting middleware
 app.use(async function (req , res , next) {
     const key = 'rate-limit'
     // rate-limiting for individual users
