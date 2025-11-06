@@ -4,8 +4,13 @@ import axios from "axios";
 import dotenv from "dotenv";
 dotenv.config();
 import radis from 'ioredis'
-
+import http from 'http'
 const PORT = process.env.PORT || 4000
+
+
+
+const httpServer = http.createServer(app)
+
 
 // const cacheStore = {
 //     totalPageCount: 0
@@ -13,6 +18,29 @@ const PORT = process.env.PORT || 4000
 
 
 const redis = new radis({ host: "localhost", port: 6379 })
+
+
+
+// rate limiting middleware
+
+app.use(async function (req , res , next) {
+    const key = 'rate-limit'
+    // rate-limiting for individual users
+    // const key = `rate-limit${token}`
+    const value = await redis.get(key)
+
+    if(value === null) {
+        redis.set(key , 0)
+        redis.expire(key , 60);    
+    }
+    if(value > 10) {
+        return res.status(429).json({
+            message: "Too many requeste"
+        })
+    }
+    await redis.incr(key)
+    next();
+})
 
 app.get("/books", async (req , res) => {
 
@@ -40,8 +68,10 @@ app.get("/books", async (req , res) => {
 })
 
 
-app.listen(PORT , () => {
-    console.log(`Server is running on PORT: ${PORT}`)
-});
+// app.listen(PORT , () => {
+//     console.log(`Server is running on PORT: ${PORT}`)
+// });
 
-// https://api.freeapi.app/api/v1/public/books
+httpServer.listen(PORT , () => {
+    console.log(`HTTP Server is running on PORT ${PORT}`)
+})
